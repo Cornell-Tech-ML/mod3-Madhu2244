@@ -373,6 +373,12 @@ class Tensor:
             return Sum.apply(self)
         return Sum.apply(self, self._ensure_tensor(dim))
 
+    def mul(self, dim: Optional[TensorLike] = None) -> Tensor:
+        """Get Mul of Tensor"""
+        if dim is None:
+            return Mul.apply(self)
+        return Mul.apply(self, self._ensure_tensor(dim))
+
     def view(self, *dim: TensorLike) -> Tensor:
         """Reshape tensor"""
         return View.apply(self, tensor(dim))

@@ -14,7 +14,7 @@ from .autodiff import Context
 from .tensor_ops import SimpleBackend, TensorBackend
 
 if TYPE_CHECKING:
-    from typing import Any, List, Tuple
+    from typing import Any, List, Tuple, Optional, Union
 
     from .tensor import Tensor
     from .tensor_data import UserIndex, UserShape
@@ -186,22 +186,24 @@ class Exp(Function):
 
 class Sum(Function):
     @staticmethod
-    def forward(ctx: Context, t1: Tensor, dim: Tensor | None = None) -> Tensor:
-        """Compute Sum"""
-        ctx.save_for_backward(dim)
-        if dim is not None:
-            return t1.f.add_reduce(t1, int(dim.item()))
-        return t1.f.add_reduce(t1.contiguous().view(int(operators.prod(t1.shape))), 0)
+    def forward(ctx: Context, a: Tensor, dim: Optional[Tensor] = None) -> Tensor:
+        """Compute the sum of all elements or along a specified dimension."""
+        ctx.save_for_backward(a, dim)
+        if dim is None:
+            return a.f.add_reduce(a.contiguous().view(a.size), 0)
+        else:
+            return a.f.add_reduce(a, int(dim.item()))
 
     @staticmethod
-    def backward(ctx: Context, grad_output: Tensor) -> Tensor | Tuple[Tensor, Tensor]:
-        """Gradient tensor of the Sum"""
-        (dim,) = ctx.saved_values
-
-        if dim is not None:
-            return grad_output, zeros(dim.shape)
+    def backward(
+        ctx: Context, grad_output: Tensor
+    ) -> Union[Tensor, Tuple[Tensor, Tensor]]:
+        """Compute the gradient for the sum operation."""
+        original_tensor, dim = ctx.saved_values
+        if dim is None:
+            return original_tensor.expand(grad_output)
         else:
-            return grad_output
+            return original_tensor.expand(grad_output), zeros(dim.shape)
 
 
 class LT(Function):

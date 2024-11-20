@@ -77,7 +77,10 @@ def is_close(x: float, y: float) -> bool:
 
 def sigmoid(x: float) -> float:
     """Sigmoid function."""
-    return 1.0 / (1.0 + math.exp(-x)) if x >= 0 else math.exp(x) / (1.0 + math.exp(x))
+    if x >= 0:
+        return 1.0 / (1.0 + math.exp(-x))
+    else:
+        return math.exp(x) / (1.0 + math.exp(x))
 
 
 def relu(x: float) -> float:
@@ -97,7 +100,7 @@ def exp(x: float) -> float:
 
 def log_back(x: float, g: float) -> float:
     """Computes the derivative of log times a second arg."""
-    return mul(inv(x), g)
+    return g / x
 
 
 def inv(x: float) -> float:
@@ -107,12 +110,12 @@ def inv(x: float) -> float:
 
 def inv_back(x: float, g: float) -> float:
     """Computes the derivative of reciprocal times a second arg."""
-    return mul(neg(inv(mul(x, x))), g)
+    return -g / (x**2)
 
 
 def relu_back(x: float, g: float) -> float:
     """Computes the derivative of ReLU times a second arg."""
-    return mul(g, lt(0, x))
+    return g if x > 0 else 0.0
 
 
 # ## Task 0.3

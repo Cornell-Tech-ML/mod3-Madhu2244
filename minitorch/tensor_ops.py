@@ -15,7 +15,9 @@ from .tensor_data import (
 
 if TYPE_CHECKING:
     from .tensor import Tensor
-    from .tensor_data import Shape, Storage, Strides
+    from .tensor_data import Shape, Storage, Strides, Index
+
+MAX_DIMS = 32
 
 
 class MapProto(Protocol):
@@ -273,14 +275,14 @@ def tensor_map(
         in_shape: Shape,
         in_strides: Strides,
     ) -> None:
-        out_index = np.zeros(len(out_shape), dtype=int)
-        in_index = np.zeros(len(in_shape), dtype=int)
-
+        out_index: Index = np.zeros(MAX_DIMS, np.int16)
+        in_index: Index = np.zeros(MAX_DIMS, np.int16)
         for i in range(len(out)):
             to_index(i, out_shape, out_index)
             broadcast_index(out_index, out_shape, in_shape, in_index)
-            in_pos = index_to_position(in_index, in_strides)
-            out[i] = fn(in_storage[in_pos])
+            o = index_to_position(out_index, out_strides)
+            j = index_to_position(in_index, in_strides)
+            out[o] = fn(in_storage[j])
 
     return _map
 
@@ -326,17 +328,18 @@ def tensor_zip(
         b_shape: Shape,
         b_strides: Strides,
     ) -> None:
-        out_index = np.zeros(len(out_shape), dtype=int)
-        a_index = np.zeros(len(a_shape), dtype=int)
-        b_index = np.zeros(len(b_shape), dtype=int)
-
+        out_index: Index = np.zeros(MAX_DIMS, np.int32)
+        a_index: Index = np.zeros(MAX_DIMS, np.int32)
+        b_index: Index = np.zeros(MAX_DIMS, np.int32)
         for i in range(len(out)):
             to_index(i, out_shape, out_index)
+            o = index_to_position(out_index, out_strides)
             broadcast_index(out_index, out_shape, a_shape, a_index)
+            j = index_to_position(a_index, a_strides)
             broadcast_index(out_index, out_shape, b_shape, b_index)
-            a_idx = index_to_position(a_index, a_strides)
-            b_idx = index_to_position(b_index, b_strides)
-            out[i] = fn(a_storage[a_idx], b_storage[b_idx])
+            k = index_to_position(b_index, b_strides)
+            out[o] = fn(a_storage[j], b_storage[k])
+
 
     return _zip
 
@@ -368,26 +371,37 @@ def tensor_reduce(
         a_strides: Strides,
         reduce_dim: int,
     ) -> None:
-        out_index = np.zeros(len(out_shape), dtype=int)
-        a_index = np.zeros(len(a_shape), dtype=int)
-
+        # ASSIGN2.2
+        out_index: Index = np.zeros(MAX_DIMS, np.int32)
+        reduce_size = a_shape[reduce_dim]
         for i in range(len(out)):
             to_index(i, out_shape, out_index)
+            o = index_to_position(out_index, out_strides)
+            for s in range(reduce_size):
+                out_index[reduce_dim] = s
+                j = index_to_position(out_index, a_strides)
+                out[o] = fn(out[o], a_storage[j])
+        # END ASSIGN2.2
+        # out_index = np.zeros(len(out_shape), dtype=int)
+        # a_index = np.zeros(len(a_shape), dtype=int)
 
-            for dim in range(len(out_shape)):
-                a_index[dim] = out_index[dim]
+        # for i in range(len(out)):
+        #     to_index(i, out_shape, out_index)
 
-            a_index[reduce_dim] = 0
-            a_pos = index_to_position(a_index, a_strides)
-            acc = a_storage[a_pos]
+        #     for dim in range(len(out_shape)):
+        #         a_index[dim] = out_index[dim]
 
-            for j in range(1, a_shape[reduce_dim]):
-                a_index[reduce_dim] = j
-                a_pos = index_to_position(a_index, a_strides)
-                acc = fn(acc, a_storage[a_pos])
+        #     a_index[reduce_dim] = 0
+        #     a_pos = index_to_position(a_index, a_strides)
+        #     acc = a_storage[a_pos]
 
-            out_pos = index_to_position(out_index, out_strides)
-            out[out_pos] = acc
+        #     for j in range(1, a_shape[reduce_dim]):
+        #         a_index[reduce_dim] = j
+        #         a_pos = index_to_position(a_index, a_strides)
+        #         acc = fn(acc, a_storage[a_pos])
+
+        #     out_pos = index_to_position(out_index, out_strides)
+        #     out[out_pos] = acc
 
     return _reduce
 
