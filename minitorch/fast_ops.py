@@ -7,7 +7,6 @@ from numba import prange
 from numba import njit as _njit
 
 from .tensor_data import (
-    MAX_DIMS,
     broadcast_index,
     index_to_position,
     shape_broadcast,
@@ -19,7 +18,7 @@ if TYPE_CHECKING:
     from typing import Callable, Optional
 
     from .tensor import Tensor
-    from .tensor_data import Index, Shape, Storage, Strides
+    from .tensor_data import Shape, Storage, Strides
 
 # TIP: Use `NUMBA_DISABLE_JIT=1 pytest tests/ -m task3_1` to run these tests without JIT.
 
@@ -30,6 +29,7 @@ Fn = TypeVar("Fn")
 
 
 def njit(fn: Fn, **kwargs: Any) -> Fn:
+    """Jit a function"""
     return _njit(inline="always", **kwargs)(fn)  # type: ignore
 
 
@@ -168,7 +168,6 @@ def tensor_map(
         in_shape: Shape,
         in_strides: Strides,
     ) -> None:
-
         for i in prange(len(out)):
             out_index = np.empty(len(in_shape), np.int32)
             in_index = np.empty(len(in_shape), np.int32)
@@ -226,7 +225,6 @@ def tensor_zip(
             a_idx = index_to_position(a_index, a_strides)
             b_idx = index_to_position(b_index, b_strides)
             out[i] = fn(a_storage[a_idx], b_storage[b_idx])
-
 
         # TODO: Implement for Task 3.1.
         # raise NotImplementedError("Need to implement for Task 3.1")
@@ -334,15 +332,19 @@ def _tensor_matrix_multiply(
             for block_k in range(0, out_shape[2]):
                 row_start_index = row_i * a_batch_stride + col_j * a_strides[1]
                 col_start_index = row_i * b_batch_stride + block_k * b_strides[2]
-                
+
                 block_sum = 0.0
-                
+
                 for block in range(0, common_dim):
                     block_sum += a_storage[row_start_index] * b_storage[col_start_index]
                     row_start_index += row_increment
                     col_start_index += col_increment
-                
-                out_index = row_i * out_strides[0] + col_j * out_strides[1] + block_k * out_strides[2]
+
+                out_index = (
+                    row_i * out_strides[0]
+                    + col_j * out_strides[1]
+                    + block_k * out_strides[2]
+                )
                 out[out_index] = block_sum
 
     # TODO: Implement for Task 3.2.
