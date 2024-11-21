@@ -269,7 +269,7 @@ def tensor_reduce(
             out_index = np.empty(len(out_shape), np.int32)
             to_index(i, out_shape, out_index)
             o = index_to_position(out_index, out_strides)
-            for s in prange(reduce_size):
+            for s in range(reduce_size):
                 out_index[reduce_dim] = s
                 j = index_to_position(out_index, a_strides)
                 out[o] = fn(out[o], a_storage[j])
@@ -325,8 +325,28 @@ def _tensor_matrix_multiply(
     a_batch_stride = a_strides[0] if a_shape[0] > 1 else 0
     b_batch_stride = b_strides[0] if b_shape[0] > 1 else 0
 
+    row_increment = a_strides[2]
+    col_increment = b_strides[1]
+    common_dim = a_shape[-1]
+
+    for row_i in prange(0, out_shape[0]):
+        for col_j in range(0, out_shape[1]):
+            for block_k in range(0, out_shape[2]):
+                row_start_index = row_i * a_batch_stride + col_j * a_strides[1]
+                col_start_index = row_i * b_batch_stride + block_k * b_strides[2]
+                
+                block_sum = 0.0
+                
+                for block in range(0, common_dim):
+                    block_sum += a_storage[row_start_index] * b_storage[col_start_index]
+                    row_start_index += row_increment
+                    col_start_index += col_increment
+                
+                out_index = row_i * out_strides[0] + col_j * out_strides[1] + block_k * out_strides[2]
+                out[out_index] = block_sum
+
     # TODO: Implement for Task 3.2.
-    raise NotImplementedError("Need to implement for Task 3.2")
+    # raise NotImplementedError("Need to implement for Task 3.2")
 
 
 tensor_matrix_multiply = njit(_tensor_matrix_multiply, parallel=True)
